@@ -1,26 +1,57 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
+	"github.com/AndresEGV/backend-api-go/config"
 	"github.com/AndresEGV/backend-api-go/database"
 	"github.com/AndresEGV/backend-api-go/handlers"
+	"github.com/AndresEGV/backend-api-go/middleware"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	// Conectar a la base de datos
+	// 1. Cargar configuración
+	log.Println("🔧 Cargando configuración...")
+	config.Load()
+
+	// 2. Configurar modo de Gin (debug/release)
+	gin.SetMode(config.AppConfig.Server.GinMode)
+
+	// 3. Conectar a la base de datos
+	log.Println("🔌 Conectando a la base de datos...")
 	database.Connect()
 
-	// Crear el router de Gin
-	router := gin.Default()
+	// 4. Crear el router de Gin sin middleware por defecto
+	router := gin.New()
 
-	// Ruta de bienvenida
+	// 5. Aplicar middleware globales
+	router.Use(gin.Recovery())        // Recuperación de panics
+	router.Use(middleware.Logger())   // Logger personalizado
+	router.Use(middleware.CORS())     // CORS configurado
+
+	// 6. Ruta de health check
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "ok",
+			"database": "connected",
+		})
+	})
+
+	// 7. Ruta de bienvenida
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "¡Bienvenido a la API de Tareas en Go! 🚀",
-			"version": "1.0.0",
+			"version": "2.0.0",
+			"features": gin.H{
+				"ORM":         "GORM",
+				"Database":    config.AppConfig.Database.Type,
+				"CORS":        "Habilitado",
+				"Validations": "Automáticas",
+			},
 			"endpoints": gin.H{
+				"GET /health":       "Health check",
 				"GET /tasks":        "Obtener todas las tareas",
 				"GET /tasks/:id":    "Obtener una tarea por ID",
 				"POST /tasks":       "Crear una nueva tarea",
@@ -30,7 +61,7 @@ func main() {
 		})
 	})
 
-	// Agrupar las rutas de tareas bajo /tasks
+	// 8. Agrupar las rutas de tareas bajo /tasks
 	taskRoutes := router.Group("/tasks")
 	{
 		taskRoutes.GET("", handlers.GetAllTasks)       // GET /tasks
@@ -40,9 +71,15 @@ func main() {
 		taskRoutes.DELETE("/:id", handlers.DeleteTask) // DELETE /tasks/:id
 	}
 
-	// Iniciar el servidor en el puerto 8080
-	log.Println("🚀 Servidor corriendo en http://localhost:8080")
-	if err := router.Run(":8080"); err != nil {
-		log.Fatal("Error al iniciar el servidor:", err)
+	// 9. Iniciar el servidor
+	port := config.AppConfig.Server.Port
+	serverAddr := fmt.Sprintf(":%s", port)
+
+	log.Printf("🚀 Servidor corriendo en http://localhost:%s", port)
+	log.Printf("📚 Documentación: http://localhost:%s/", port)
+	log.Printf("🏥 Health check: http://localhost:%s/health", port)
+
+	if err := router.Run(serverAddr); err != nil {
+		log.Fatal("❌ Error al iniciar el servidor:", err)
 	}
 }

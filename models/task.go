@@ -19,13 +19,13 @@ type Task struct {
 
 // CreateTaskInput define los datos necesarios para crear una tarea
 type CreateTaskInput struct {
-	Title       string `json:"title" binding:"required"`
-	Description string `json:"description"`
+	Title       string `json:"title" binding:"required,min=3,max=200"`
+	Description string `json:"description" binding:"max=1000"`
 }
 
 // UpdateTaskInput define los datos para actualizar una tarea
 type UpdateTaskInput struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Title       string `json:"title" binding:"omitempty,min=3,max=200"`
+	Description string `json:"description" binding:"max=1000"`
 	Completed   *bool  `json:"completed"` // Usamos puntero para permitir false como valor válido
 }

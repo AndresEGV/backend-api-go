@@ -5,6 +5,7 @@ import (
 
 	"github.com/AndresEGV/backend-api-go/database"
 	"github.com/AndresEGV/backend-api-go/models"
+	"github.com/AndresEGV/backend-api-go/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,17 +15,14 @@ func GetAllTasks(c *gin.Context) {
 	var tasks []models.Task
 
 	// Buscar todas las tareas en la base de datos
-	result := database.DB.Find(&tasks)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Error al obtener las tareas",
-		})
+	if result := database.DB.Find(&tasks); result.Error != nil {
+		utils.InternalServerErrorResponse(c, utils.ErrDatabaseOperation)
 		return
 	}
 
 	// Retornar las tareas en formato JSON
-	c.JSON(http.StatusOK, gin.H{
-		"data":  tasks,
+	utils.SuccessResponse(c, http.StatusOK, utils.MsgTasksFetched, gin.H{
+		"tasks": tasks,
 		"count": len(tasks),
 	})
 }
@@ -36,17 +34,12 @@ func GetTaskByID(c *gin.Context) {
 	id := c.Param("id")
 
 	// Buscar la tarea por ID
-	result := database.DB.First(&task, id)
-	if result.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Tarea no encontrada",
-		})
+	if result := database.DB.First(&task, id); result.Error != nil {
+		utils.NotFoundResponse(c, "Tarea")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"data": task,
-	})
+	utils.SuccessResponse(c, http.StatusOK, "", task)
 }
 
 // CreateTask crea una nueva tarea
@@ -56,9 +49,7 @@ func CreateTask(c *gin.Context) {
 
 	// Validar el JSON recibido
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
@@ -70,18 +61,12 @@ func CreateTask(c *gin.Context) {
 	}
 
 	// Guardar en la base de datos
-	result := database.DB.Create(&task)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Error al crear la tarea",
-		})
+	if result := database.DB.Create(&task); result.Error != nil {
+		utils.InternalServerErrorResponse(c, utils.ErrDatabaseOperation)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Tarea creada exitosamente",
-		"data":    task,
-	})
+	utils.SuccessResponse(c, http.StatusCreated, utils.MsgTaskCreated, task)
 }
 
 // UpdateTask actualiza una tarea existente
@@ -91,24 +76,19 @@ func UpdateTask(c *gin.Context) {
 	id := c.Param("id")
 
 	// Buscar la tarea
-	result := database.DB.First(&task, id)
-	if result.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Tarea no encontrada",
-		})
+	if result := database.DB.First(&task, id); result.Error != nil {
+		utils.NotFoundResponse(c, "Tarea")
 		return
 	}
 
 	// Validar el input
 	var input models.UpdateTaskInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		utils.ValidationErrorResponse(c, err)
 		return
 	}
 
-	// Actualizar los campos
+	// Actualizar los campos solo si se proporcionaron
 	if input.Title != "" {
 		task.Title = input.Title
 	}
@@ -120,33 +100,31 @@ func UpdateTask(c *gin.Context) {
 	}
 
 	// Guardar cambios
-	database.DB.Save(&task)
+	if result := database.DB.Save(&task); result.Error != nil {
+		utils.InternalServerErrorResponse(c, utils.ErrDatabaseOperation)
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Tarea actualizada exitosamente",
-		"data":    task,
-	})
+	utils.SuccessResponse(c, http.StatusOK, utils.MsgTaskUpdated, task)
 }
 
-// DeleteTask elimina una tarea
+// DeleteTask elimina una tarea (soft delete)
 // DELETE /tasks/:id
 func DeleteTask(c *gin.Context) {
 	var task models.Task
 	id := c.Param("id")
 
 	// Buscar la tarea
-	result := database.DB.First(&task, id)
-	if result.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Tarea no encontrada",
-		})
+	if result := database.DB.First(&task, id); result.Error != nil {
+		utils.NotFoundResponse(c, "Tarea")
 		return
 	}
 
-	// Eliminar la tarea
-	database.DB.Delete(&task)
+	// Eliminar la tarea (soft delete por defecto con GORM)
+	if result := database.DB.Delete(&task); result.Error != nil {
+		utils.InternalServerErrorResponse(c, utils.ErrDatabaseOperation)
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Tarea eliminada exitosamente",
-	})
+	utils.SuccessResponse(c, http.StatusOK, utils.MsgTaskDeleted, nil)
 }

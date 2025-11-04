@@ -1,0 +1,40 @@
+# Binarios de Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Archivos de test
+*.test
+
+# Output de builds
+*.out
+/bin/
+/dist/
+
+# Dependencias
+/vendor/
+
+# Base de datos SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Variables de entorno
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
